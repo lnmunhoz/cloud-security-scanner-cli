@@ -5,12 +5,13 @@ import http from 'http';
 import { URL } from 'url';
 import { exec } from 'child_process';
 import { fileURLToPath } from 'url';
+import { saveTokens, loadTokens } from './token-manager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DROPBOX_TOKEN_PATH = path.join(__dirname, '..', 'dropbox-token.json');
-const DROPBOX_CONFIG_PATH = path.join(__dirname, '..', 'dropbox-config.json');
+const TOKENS_PATH = path.join(__dirname, '..', 'config', 'tokens.json');
+const DROPBOX_CONFIG_PATH = path.join(__dirname, '..', 'config', 'dropbox-config.json');
 
 export async function authenticateDropbox() {
   let config;
@@ -20,7 +21,7 @@ export async function authenticateDropbox() {
   } catch (error) {
     throw new Error(
       `Error loading Dropbox config file: ${error.message}\n` +
-      `Please create a 'dropbox-config.json' file with your Dropbox app credentials:\n` +
+      `Please create a 'dropbox-config.json' file in the config folder with your Dropbox app credentials:\n` +
       `{\n` +
       `  "clientId": "your-app-key",\n` +
       `  "clientSecret": "your-app-secret"\n` +
@@ -30,13 +31,12 @@ export async function authenticateDropbox() {
   }
 
   try {
-    const tokenContent = await fs.readFile(DROPBOX_TOKEN_PATH);
-    const tokenData = JSON.parse(tokenContent);
+    const tokens = await loadTokens('dropbox');
     
     // Create Dropbox client with existing token
     const dbx = new Dropbox({
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
       clientId: config.clientId,
       clientSecret: config.clientSecret
     });
@@ -103,8 +103,8 @@ async function getNewDropboxToken(config) {
               throw new Error(tokenData.error_description || tokenData.error);
             }
 
-            // Save token data
-            await fs.writeFile(DROPBOX_TOKEN_PATH, JSON.stringify(tokenData, null, 2));
+            // Save token data to unified tokens.json
+            await saveTokens('dropbox', tokenData);
             
             // Create Dropbox client
             const dbx = new Dropbox({
@@ -199,3 +199,4 @@ async function getNewDropboxToken(config) {
     });
   });
 }
+

@@ -1,7 +1,7 @@
 {
-  "name": "cloud-security-scanner",
+  "name": "cloud-security-scanner-cli",
   "version": "1.0.0",
-  "description": "A security tool to scan Google Drive files for potential vulnerabilities and exposed credentials",
+  "description": "A security tool to scan cloud storage (Google Drive and Dropbox) for potential vulnerabilities and exposed credentials",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -10,10 +10,13 @@
   },
   "keywords": [
     "google-drive",
+    "dropbox",
+    "cloud-storage",
     "security",
     "vulnerability",
     "scanner",
-    "credentials"
+    "credentials",
+    "multi-cloud"
   ],
   "author": "",
   "license": "MIT",

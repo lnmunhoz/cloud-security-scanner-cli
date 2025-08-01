@@ -1,17 +1,23 @@
 node_modules/
+*.log
+.env
+.DS_Store
+.~*lock
+
+# Config files
+config/google-credentials.json
+config/dropbox-config.json
+config/tokens.json
+config/google-scan-cache.json
+config/dropbox-scan-cache.json
+
+# Legacy files (for backward compatibility)
 credentials.json
 token.json
 dropbox-config.json
 dropbox-token.json
-*.log
-.env
-.DS_Store
-drive-scan-*.json
-drive-scan-*.csv
-drive-scan-report-*.md
-dropbox-scan-*.json
-dropbox-scan-*.csv
-dropbox-scan-report-*.md
+google-token.json
 scan-cache.json
-token.json
-.~*lock
+
+# Report files
+reports/

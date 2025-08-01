@@ -5,13 +5,14 @@ import { fileURLToPath } from "url";
 import http from "http";
 import { URL } from "url";
 import { exec } from "child_process";
+import { saveTokens, loadTokens } from "./token-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SCOPES = ["https://www.googleapis.com/auth/drive.readonly"];
-const TOKEN_PATH = path.join(__dirname, "..", "token.json");
-const CREDENTIALS_PATH = path.join(__dirname, "..", "credentials.json");
+const TOKENS_PATH = path.join(__dirname, "..", "config", "tokens.json");
+const CREDENTIALS_PATH = path.join(__dirname, "..", "config", "google-credentials.json");
 
 export async function authenticate() {
   let credentials;
@@ -20,7 +21,7 @@ export async function authenticate() {
     credentials = JSON.parse(credentialsContent);
   } catch (error) {
     throw new Error(
-      `Error loading client secret file: ${error.message}\nPlease ensure you have downloaded your OAuth2 credentials from Google Cloud Console and saved them as 'credentials.json' in the project root.`
+      `Error loading client secret file: ${error.message}\nPlease ensure you have downloaded your OAuth2 credentials from Google Cloud Console and saved them as 'google-credentials.json' in the config folder.`
     );
   }
 
@@ -32,9 +33,8 @@ export async function authenticate() {
   );
 
   try {
-    const tokenContent = await fs.readFile(TOKEN_PATH);
-    const token = JSON.parse(tokenContent);
-    oAuth2Client.setCredentials(token);
+    const tokens = await loadTokens('google');
+    oAuth2Client.setCredentials(tokens);
     return { oAuth2Client, isNewAuth: false };
   } catch (error) {
     const oAuth2Client = await getNewToken(credentials);
@@ -84,7 +84,9 @@ async function getNewToken(credentials) {
 
             const { tokens } = await oAuth2Client.getToken(code);
             oAuth2Client.setCredentials(tokens);
-            await fs.writeFile(TOKEN_PATH, JSON.stringify(tokens));
+            
+            // Save tokens to unified tokens.json file
+            await saveTokens('google', tokens);
 
             res.writeHead(200, { "Content-Type": "text/html" });
             res.end(`
@@ -185,3 +187,4 @@ async function getNewToken(credentials) {
     });
   });
 }
+

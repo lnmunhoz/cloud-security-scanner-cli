@@ -1,6 +1,12 @@
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPORTS_DIR = path.join(__dirname, '..', 'reports');
 
 export class Reporter {
   constructor() {
@@ -155,8 +161,9 @@ export class Reporter {
 
     const provider = this.getProviderPrefix();
     const filename = `${provider}-scan-${Date.now()}.json`;
-    await fs.writeFile(filename, JSON.stringify(report, null, 2));
-    console.log(chalk.green(`📄 JSON report saved to: ${filename}`));
+    const filepath = path.join(REPORTS_DIR, filename);
+    await fs.writeFile(filepath, JSON.stringify(report, null, 2));
+    console.log(chalk.green(`📄 JSON report saved to: reports/${filename}`));
   }
 
   async generateCSVReport() {
@@ -181,8 +188,9 @@ export class Reporter {
 
     const provider = this.getProviderPrefix();
     const filename = `${provider}-scan-${Date.now()}.csv`;
-    await fs.writeFile(filename, csvContent);
-    console.log(chalk.green(`📊 CSV report saved to: ${filename}`));
+    const filepath = path.join(REPORTS_DIR, filename);
+    await fs.writeFile(filepath, csvContent);
+    console.log(chalk.green(`📊 CSV report saved to: reports/${filename}`));
   }
 
   async generateMarkdownReport() {
@@ -321,8 +329,9 @@ This security scan analyzes Google Drive file names to identify potentially sens
 
     const provider = this.getProviderPrefix();
     const filename = `${provider}-scan-report-${Date.now()}.md`;
-    await fs.writeFile(filename, markdown);
-    console.log(chalk.green(`📄 Markdown report saved to: ${filename}`));
+    const filepath = path.join(REPORTS_DIR, filename);
+    await fs.writeFile(filepath, markdown);
+    console.log(chalk.green(`📄 Markdown report saved to: reports/${filename}`));
   }
 
   getSeverityCounts() {
