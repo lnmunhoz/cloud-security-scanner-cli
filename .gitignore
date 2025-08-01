@@ -1,0 +1,10 @@
+node_modules/
+credentials.json
+token.json
+*.log
+.env
+.DS_Store
+drive-scan-*.json
+drive-scan-*.csv
+token.json
+.~*lock
