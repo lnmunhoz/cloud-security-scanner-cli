@@ -24,10 +24,35 @@ program
       console.log(chalk.gray(`Output format: ${options.output.toUpperCase()}`));
       console.log(chalk.gray('Initializing authentication...'));
 
-      const auth = await authenticate();
+      const { oAuth2Client, isNewAuth } = await authenticate();
       console.log(chalk.green('✅ Authentication successful'));
+      
+      // Only ask for confirmation if this is a new authorization
+      if (isNewAuth) {
+        console.log('\n' + chalk.yellow('📋 Ready to scan your Google Drive'));
+        console.log(chalk.gray('This will analyze all file names in your Google Drive to identify potentially sensitive files.'));
+        console.log(chalk.gray('No file contents will be downloaded or analyzed.'));
+        
+        const { default: readline } = await import('readline');
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+        
+        const proceed = await new Promise((resolve) => {
+          rl.question('\n' + chalk.bold('Do you want to start the scan? (yes/no): '), (answer) => {
+            rl.close();
+            resolve(answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y');
+          });
+        });
+        
+        if (!proceed) {
+          console.log(chalk.yellow('\n⚠️  Scan cancelled by user'));
+          process.exit(0);
+        }
+      }
 
-      const scanner = new DriveScanner(auth);
+      const scanner = new DriveScanner(oAuth2Client);
       const vulnerableFiles = await scanner.scanAllFiles();
 
       const reporter = new Reporter();
