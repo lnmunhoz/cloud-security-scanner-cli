@@ -1,12 +1,17 @@
 node_modules/
 credentials.json
 token.json
+dropbox-config.json
+dropbox-token.json
 *.log
 .env
 .DS_Store
 drive-scan-*.json
 drive-scan-*.csv
 drive-scan-report-*.md
+dropbox-scan-*.json
+dropbox-scan-*.csv
+dropbox-scan-report-*.md
 scan-cache.json
 token.json
 .~*lock
