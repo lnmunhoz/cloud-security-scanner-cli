@@ -6,5 +6,7 @@ token.json
 .DS_Store
 drive-scan-*.json
 drive-scan-*.csv
+drive-scan-report-*.md
+scan-cache.json
 token.json
 .~*lock

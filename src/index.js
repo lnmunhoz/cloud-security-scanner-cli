@@ -2,9 +2,16 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { authenticate } from './auth.js';
 import { DriveScanner } from './scanner.js';
 import { Reporter } from './reporter.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CACHE_PATH = path.join(__dirname, '..', 'scan-cache.json');
 
 const program = new Command();
 
@@ -18,45 +25,76 @@ program
   .description('Scan Google Drive for vulnerable files')
   .option('-o, --output <format>', 'Output format (console, json, csv, markdown)', 'console')
   .option('--no-color', 'Disable colored output')
+  .option('--use-cache', 'Use cached scan results instead of performing a new scan')
+  .option('--no-cache', 'Skip saving scan results to cache')
   .action(async (options) => {
     try {
       console.log(chalk.blue.bold('🔍 Google Drive Security Scanner'));
       console.log(chalk.gray(`Output format: ${options.output.toUpperCase()}`));
-      console.log(chalk.gray('Initializing authentication...'));
-
-      const { oAuth2Client, isNewAuth } = await authenticate();
-      console.log(chalk.green('✅ Authentication successful'));
       
-      // Only ask for confirmation if this is a new authorization
-      if (isNewAuth) {
-        console.log('\n' + chalk.yellow('📋 Ready to scan your Google Drive'));
-        console.log(chalk.gray('This will analyze all file names in your Google Drive to identify potentially sensitive files.'));
-        console.log(chalk.gray('No file contents will be downloaded or analyzed.'));
+      let scanResults;
+      
+      // Check if using cached results
+      if (options.useCache) {
+        try {
+          console.log(chalk.gray('Loading cached scan results...'));
+          const cacheContent = await fs.readFile(CACHE_PATH, 'utf8');
+          scanResults = JSON.parse(cacheContent);
+          console.log(chalk.green(`✅ Loaded cached scan from ${new Date(scanResults.summary.scanDate).toLocaleString()}`));
+        } catch (error) {
+          console.log(chalk.yellow('⚠️  No cache found. Performing new scan...'));
+          options.useCache = false;
+        }
+      }
+      
+      // Perform new scan if not using cache
+      if (!options.useCache) {
+        console.log(chalk.gray('Initializing authentication...'));
+
+        const { oAuth2Client, isNewAuth } = await authenticate();
+        console.log(chalk.green('✅ Authentication successful'));
         
-        const { default: readline } = await import('readline');
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-        
-        const proceed = await new Promise((resolve) => {
-          rl.question('\n' + chalk.bold('Do you want to start the scan? (yes/no): '), (answer) => {
-            rl.close();
-            resolve(answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y');
+        // Only ask for confirmation if this is a new authorization
+        if (isNewAuth) {
+          console.log('\n' + chalk.yellow('📋 Ready to scan your Google Drive'));
+          console.log(chalk.gray('This will analyze all file names in your Google Drive to identify potentially sensitive files.'));
+          console.log(chalk.gray('No file contents will be downloaded or analyzed.'));
+          
+          const { default: readline } = await import('readline');
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
           });
-        });
+          
+          const proceed = await new Promise((resolve) => {
+            rl.question('\n' + chalk.bold('Do you want to start the scan? (yes/no): '), (answer) => {
+              rl.close();
+              resolve(answer.toLowerCase() === 'yes' || answer.toLowerCase() === 'y');
+            });
+          });
+          
+          if (!proceed) {
+            console.log(chalk.yellow('\n⚠️  Scan cancelled by user'));
+            process.exit(0);
+          }
+        }
+
+        const scanner = new DriveScanner(oAuth2Client);
+        scanResults = await scanner.scanAllFiles();
         
-        if (!proceed) {
-          console.log(chalk.yellow('\n⚠️  Scan cancelled by user'));
-          process.exit(0);
+        // Save to cache unless disabled
+        if (options.cache !== false) {
+          try {
+            await fs.writeFile(CACHE_PATH, JSON.stringify(scanResults, null, 2));
+            console.log(chalk.gray('💾 Scan results saved to cache'));
+          } catch (error) {
+            console.warn(chalk.yellow('⚠️  Could not save cache:', error.message));
+          }
         }
       }
 
-      const scanner = new DriveScanner(oAuth2Client);
-      const vulnerableFiles = await scanner.scanAllFiles();
-
       const reporter = new Reporter();
-      await reporter.generateReport(vulnerableFiles, options.output);
+      await reporter.generateReport(scanResults, options.output);
 
     } catch (error) {
       console.error(chalk.red('❌ Error:'), error.message);

@@ -7,6 +7,9 @@ export class DriveScanner {
     this.vulnerableFiles = [];
     this.totalFilesScanned = 0;
     this.totalFilesFetched = 0;
+    this.allFiles = [];
+    this.fileTree = { name: 'My Drive', type: 'folder', children: {}, id: 'root' };
+    this.folderCache = new Map();
   }
 
   async scanAllFiles() {
@@ -14,6 +17,10 @@ export class DriveScanner {
     
     try {
       await this.listFiles(null, spinner);
+      
+      // Build the file tree
+      spinner.text = 'Building file tree structure...';
+      await this.buildFileTree();
       
       // Sort vulnerable files by severity (HIGH -> MEDIUM -> LOW)
       this.vulnerableFiles.sort((a, b) => {
@@ -24,7 +31,7 @@ export class DriveScanner {
       });
       
       spinner.succeed(`Scan completed! Fetched ${this.totalFilesFetched} files, analyzed ${this.totalFilesScanned} files, found ${this.vulnerableFiles.length} potentially vulnerable files.`);
-      return this.vulnerableFiles;
+      return this.getScanResults();
     } catch (error) {
       spinner.fail('Scan failed');
       throw error;
@@ -50,6 +57,10 @@ export class DriveScanner {
     
     for (const file of files) {
       this.totalFilesScanned++;
+      
+      // Store all files for file tree generation
+      this.allFiles.push(file);
+      
       const risks = this.analyzeFileName(file);
       if (risks.length > 0) {
         const folderPath = await this.getFolderPath(file.id, file.parents);
@@ -324,5 +335,80 @@ export class DriveScanner {
     } catch (error) {
       return '/';
     }
+  }
+
+  async buildFileTree() {
+    // First, get all folders and build the folder structure
+    const folders = this.allFiles.filter(file => file.mimeType === 'application/vnd.google-apps.folder');
+    
+    // Create folder entries in the cache
+    for (const folder of folders) {
+      this.folderCache.set(folder.id, {
+        name: folder.name,
+        type: 'folder',
+        children: {},
+        id: folder.id,
+        parents: folder.parents || []
+      });
+    }
+    
+    // Build folder hierarchy
+    for (const folder of folders) {
+      const folderNode = this.folderCache.get(folder.id);
+      if (folder.parents && folder.parents.length > 0) {
+        const parentId = folder.parents[0];
+        if (parentId === 'root' || !parentId) {
+          this.fileTree.children[folder.name] = folderNode;
+        } else {
+          const parentNode = this.folderCache.get(parentId);
+          if (parentNode) {
+            parentNode.children[folder.name] = folderNode;
+          }
+        }
+      } else {
+        // No parent means it's in root
+        this.fileTree.children[folder.name] = folderNode;
+      }
+    }
+    
+    // Add files to their respective folders
+    const files = this.allFiles.filter(file => file.mimeType !== 'application/vnd.google-apps.folder');
+    for (const file of files) {
+      const fileNode = {
+        name: file.name,
+        type: 'file',
+        id: file.id,
+        mimeType: file.mimeType,
+        size: file.size,
+        modifiedTime: file.modifiedTime
+      };
+      
+      if (file.parents && file.parents.length > 0) {
+        const parentId = file.parents[0];
+        if (parentId === 'root' || !parentId) {
+          this.fileTree.children[file.name] = fileNode;
+        } else {
+          const parentNode = this.folderCache.get(parentId);
+          if (parentNode) {
+            parentNode.children[file.name] = fileNode;
+          }
+        }
+      } else {
+        // No parent means it's in root
+        this.fileTree.children[file.name] = fileNode;
+      }
+    }
+  }
+
+  getScanResults() {
+    return {
+      vulnerableFiles: this.vulnerableFiles,
+      fileTree: this.fileTree,
+      summary: {
+        totalFiles: this.totalFilesScanned,
+        vulnerableFiles: this.vulnerableFiles.length,
+        scanDate: new Date().toISOString()
+      }
+    };
   }
 }

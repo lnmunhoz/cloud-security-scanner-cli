@@ -7,8 +7,17 @@ export class Reporter {
     this.vulnerableFiles = [];
   }
 
-  async generateReport(vulnerableFiles, outputFormat = 'console') {
-    this.vulnerableFiles = vulnerableFiles;
+  async generateReport(scanResults, outputFormat = 'console') {
+    // Handle both old format (array) and new format (object with vulnerableFiles)
+    if (Array.isArray(scanResults)) {
+      this.vulnerableFiles = scanResults;
+      this.fileTree = null;
+      this.summary = null;
+    } else {
+      this.vulnerableFiles = scanResults.vulnerableFiles || [];
+      this.fileTree = scanResults.fileTree || null;
+      this.summary = scanResults.summary || null;
+    }
 
     switch (outputFormat) {
       case 'console':
@@ -71,7 +80,58 @@ export class Reporter {
     console.log(table.toString());
     console.log();
     
+    // Print file tree if available
+    if (this.fileTree) {
+      console.log(chalk.bold.cyan('\n📁 FILE TREE STRUCTURE:'));
+      console.log(chalk.gray('=' .repeat(60)));
+      this.printFileTree(this.fileTree);
+      console.log();
+    }
+    
     this.printRecommendations();
+  }
+
+  printFileTree(node, prefix = '', isLast = true) {
+    if (node.type === 'folder') {
+      console.log(prefix + (isLast ? '└── ' : '├── ') + chalk.blue.bold('📁 ' + node.name));
+      const children = Object.values(node.children || {});
+      children.forEach((child, index) => {
+        const isChildLast = index === children.length - 1;
+        const newPrefix = prefix + (isLast ? '    ' : '│   ');
+        this.printFileTree(child, newPrefix, isChildLast);
+      });
+    } else {
+      const icon = this.getFileIcon(node.name);
+      console.log(prefix + (isLast ? '└── ' : '├── ') + icon + ' ' + node.name);
+    }
+  }
+
+  getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const icons = {
+      'env': '🔐',
+      'key': '🔑',
+      'pem': '🔑',
+      'json': '📋',
+      'xml': '📋',
+      'yml': '📋',
+      'yaml': '📋',
+      'sql': '🗄️',
+      'db': '🗄️',
+      'bak': '💾',
+      'zip': '📦',
+      'tar': '📦',
+      'gz': '📦',
+      'log': '📝',
+      'txt': '📄',
+      'doc': '📄',
+      'docx': '📄',
+      'pdf': '📄',
+      'xls': '📊',
+      'xlsx': '📊',
+      'csv': '📊'
+    };
+    return icons[ext] || '📄';
   }
 
   async generateJSONReport() {
